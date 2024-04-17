@@ -36,10 +36,16 @@ uniform sampler2D tex;
 
 	vec3 fastRefract(in vec3 dir, in vec3 normal, in float eta) {
 		float NdotD = dot(normal, dir);
-		float k = 1.0 - eta * eta * oneMinus(NdotD * NdotD);
-		if (k < 0.0) return vec3(0.0);
+		float eta2 = eta * eta;
+		float k = 1.0 - eta2 * (1.0 - NdotD * NdotD);
+		bool totalInternalReflection = k < 0.0;
 
-		return dir * eta - normal * (sqrt(k) + NdotD * eta);
+		// use step function to avoid explicit branching
+		float sqrtTerm = sqrt(max(k, 0.0));
+		float refractFactor = eta * (1.0 - step(0.0, k));
+		
+		// calculate refraction vector
+		return mix(vec3(0.0), dir * eta - normal * (sqrtTerm + NdotD * refractFactor), float(!totalInternalReflection));
 	}
 #endif
 
