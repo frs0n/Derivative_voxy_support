@@ -23,8 +23,13 @@ float voxy_dither() {
 void voxy_emitFragment(VoxyFragmentParameters parameters) {
     vec3 albedo = parameters.sampledColour.rgb * parameters.tinting.rgb;
     vec3 normal = voxy_face_normal(parameters.face);
+    normal = normalize(mat3(gbufferModelView) * normal);
 
-    uint materialIDs = max(parameters.customId - 10000u, 0u);
+    uint materialIDs = parameters.customId;
+    if (materialIDs >= 10000u) {
+        materialIDs -= 10000u;
+    }
+    materialIDs = min(materialIDs, 255u);
 
     if (materialIDs > 0u) {
         materialIDs = max(materialIDs, 6u);

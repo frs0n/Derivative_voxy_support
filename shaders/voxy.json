@@ -25,7 +25,8 @@
     "useViewportDims": true,
 #endif
     "uniforms": [
-        "taaOffset"
+        "taaOffset",
+        "gbufferModelView"
     ],
     "samplers": []
 }

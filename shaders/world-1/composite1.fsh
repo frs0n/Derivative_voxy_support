@@ -58,6 +58,7 @@ void main() {
 		bool dhRange = depth >= 1.0;
 		if (dhRange) {
 			depth = GetDepthDH(texel);
+			depthSoild = GetDepthSoildDH(texel);
 			viewPos = ScreenToViewSpaceDH(vec3(screenCoord, depth));
 		}
 

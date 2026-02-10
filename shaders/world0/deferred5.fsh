@@ -280,12 +280,18 @@ void main() {
 
 			if (maxOf(shadow) > 1e-6) {
 				#ifdef SCREEN_SPACE_SHADOWS
+					float screenSpaceShadow = 1.0;
 					#if defined DISTANT_HORIZONS
-						if (dhRange) shadow *= ScreenSpaceShadowDH(viewPos, vec3(screenCoord, depth), dither, sssAmount);		
-						else shadow *= ScreenSpaceShadow(viewPos, vec3(screenCoord, depth), dither, sssAmount);
+						if (dhRange) {
+							screenSpaceShadow = ScreenSpaceShadowDH(viewPos, vec3(screenCoord, depth), dither, sssAmount);
+							screenSpaceShadow = mix(1.0, screenSpaceShadow, oneMinus(distanceFade));
+						} else {
+							screenSpaceShadow = ScreenSpaceShadow(viewPos, vec3(screenCoord, depth), dither, sssAmount);
+						}
 					#else
-						shadow *= ScreenSpaceShadow(viewPos, vec3(screenCoord, depth), dither, sssAmount);
+						screenSpaceShadow = ScreenSpaceShadow(viewPos, vec3(screenCoord, depth), dither, sssAmount);
 					#endif
+					shadow *= screenSpaceShadow;
 				#endif
 				diffuse *= DiffuseHammon(LdotV, NdotV, NdotL, NdotH, material.roughness, albedo);
 
