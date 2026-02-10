@@ -115,6 +115,32 @@ void main() {
 
 		if (materialMaskT.translucent) {
 			vec4 reflectionData = texelFetch(colortex2, texel, 0);
+
+			#if defined VOXY && defined DISTANT_HORIZONS
+				if (dhRange && materialMaskT.water && dot(reflectionData, reflectionData) < 1e-8) {
+					vec3 worldNormal = normalize(mat3(gbufferModelViewInverse) * normal);
+					vec3 rayDirWorld = reflect(worldDir, worldNormal);
+					float skylight = clamp(texelFetch(colortex7, texel, 0).y, 0.0, 1.0);
+
+					float waterThickness = max0(GetDepthLinearDH(depthSoild) - GetDepthLinearDH(depth));
+					float absorption = fastExp(-waterThickness * 0.12);
+
+					float NdotU = saturate((dot(normal, gbufferModelView[1].xyz) + 0.7) * 2.0) * 0.75 + 0.25;
+					float NdotV = clamp(abs(normal.z), 0.0, 1.0);
+					float specular = 0.02037 + 0.97963 * pow(1.0 - NdotV, 5.0);
+					vec4 skyboxData = textureBicubic(
+						colortex5,
+						ProjectSky(rayDirWorld) + vec2(0.0, skyCaptureRes.y * screenPixelSize.y)
+					);
+
+					reflectionData.rgb = skyboxData.rgb * skylight * NdotU * specular;
+					reflectionData.a = 1.0 - specular;
+
+					vec3 waterTint = mix(vec3(0.02, 0.06, 0.12), vec3(0.04, 0.12, 0.24), skylight);
+					sceneData = sceneData * absorption + waterTint * oneMinus(absorption);
+				}
+			#endif
+
 			sceneData = sceneData * reflectionData.a + reflectionData.rgb;
 		} else if (material.hasReflections) {
 			vec4 reflectionData = texelFetch(colortex2, texel, 0);

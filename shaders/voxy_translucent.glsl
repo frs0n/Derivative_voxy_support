@@ -16,13 +16,13 @@ vec3 voxy_face_normal(uint face) {
 vec4 voxy_reflection_data(uint materialIDs, vec2 lightmap, vec3 normal) {
     if (materialIDs == 17u) {
         float NoV = clamp(abs(normal.z), 0.0, 1.0);
-        float fresnel = 0.02 + 0.98 * pow(1.0 - NoV, 5.0);
+        float specular = 0.02037 + 0.97963 * pow(1.0 - NoV, 5.0);
         float skylight = clamp(lightmap.y, 0.0, 1.0);
 
         vec3 reflection = vec3(0.025, 0.045, 0.07) * (0.35 + 0.65 * skylight);
-        reflection *= fresnel;
+        reflection *= specular;
 
-        float transmittance = clamp(1.0 - fresnel, 0.06, 0.98);
+        float transmittance = 1.0 - specular;
         return vec4(reflection, transmittance);
     }
 
@@ -52,7 +52,10 @@ void voxy_emitFragment(VoxyFragmentParameters parameters) {
         materialIDs -= 10000u;
     }
     materialIDs = min(materialIDs, 255u);
-    materialIDs = max(materialIDs, 16u);
+
+    if (materialIDs == 0u) {
+        materialIDs = 16u;
+    }
 
     colortex7Out.xy = parameters.lightMap;
     colortex7Out.xy = clamp(
