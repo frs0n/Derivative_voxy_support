@@ -275,23 +275,16 @@ void main() {
 		vec3 specular = vec3(0.0);
 		if (NdotL > 1e-3) {
 			float penumbraScale = max(blockerSearch.x / distortFactor, 2.0 / realShadowMapRes);
-			if (distanceFade < 1.0) shadow = PercentageCloserFilter(shadowProjPos, dither, penumbraScale);
-			shadow = mix(shadow, vec3(1.0), distanceFade);
+			shadow = PercentageCloserFilter(shadowProjPos, dither, penumbraScale);
 
 			if (maxOf(shadow) > 1e-6) {
 				#ifdef SCREEN_SPACE_SHADOWS
-					float screenSpaceShadow = 1.0;
 					#if defined DISTANT_HORIZONS
-						if (dhRange) {
-							screenSpaceShadow = ScreenSpaceShadowDH(viewPos, vec3(screenCoord, depth), dither, sssAmount);
-							screenSpaceShadow = mix(1.0, screenSpaceShadow, oneMinus(distanceFade));
-						} else {
-							screenSpaceShadow = ScreenSpaceShadow(viewPos, vec3(screenCoord, depth), dither, sssAmount);
-						}
+						if (dhRange) shadow *= ScreenSpaceShadowDH(viewPos, vec3(screenCoord, depth), dither, sssAmount);		
+						else shadow *= ScreenSpaceShadow(viewPos, vec3(screenCoord, depth), dither, sssAmount);
 					#else
-						screenSpaceShadow = ScreenSpaceShadow(viewPos, vec3(screenCoord, depth), dither, sssAmount);
+						shadow *= ScreenSpaceShadow(viewPos, vec3(screenCoord, depth), dither, sssAmount);
 					#endif
-					shadow *= screenSpaceShadow;
 				#endif
 				diffuse *= DiffuseHammon(LdotV, NdotV, NdotL, NdotH, material.roughness, albedo);
 
