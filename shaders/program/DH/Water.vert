@@ -3,7 +3,12 @@ uniform vec3 cameraPosition;
 uniform mat4 gbufferModelViewInverse;
 uniform vec2 taaOffset;
 
-uniform mat4 dhProjection;
+#if defined VOXY
+	uniform mat4 vxProj;
+	#define dhProjection vxProj
+#else
+	uniform mat4 dhProjection;
+#endif
 
 uniform mat4 gbufferModelView;
 

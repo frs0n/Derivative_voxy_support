@@ -23,7 +23,12 @@ uniform sampler2D colortex5;
 uniform sampler2D depthtex0;
 
 #if defined DISTANT_HORIZONS
-	uniform sampler2D dhDepthTex0;
+	#if defined VOXY
+		uniform sampler2D vxDepthTexTrans;
+		#define dhDepthTex0 vxDepthTexTrans
+	#else
+		uniform sampler2D dhDepthTex0;
+	#endif
 #endif
 
 uniform float nightVision;

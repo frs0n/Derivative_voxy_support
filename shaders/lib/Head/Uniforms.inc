@@ -68,15 +68,35 @@ uniform vec2 screenSize;
 uniform vec2 taaOffset;
 
 #if defined DISTANT_HORIZONS
-    uniform sampler2D dhDepthTex0;
-    uniform sampler2D dhDepthTex1;
+	#if defined VOXY
+		uniform sampler2D vxDepthTexOpaque;
+		uniform sampler2D vxDepthTexTrans;
 
-    uniform int dhRenderDistance;
+		uniform int vxRenderDistance;
 
-    uniform float dhNearPlane;
-    uniform float dhFarPlane;
+		uniform mat4 vxProj;
+		uniform mat4 vxProjInv;
+		uniform mat4 vxProjPrev;
 
-    uniform mat4 dhProjection;
-    uniform mat4 dhProjectionInverse;
-    uniform mat4 dhPreviousProjection;
+		#define dhDepthTex0 vxDepthTexTrans
+		#define dhDepthTex1 vxDepthTexOpaque
+		#define dhRenderDistance (vxRenderDistance * 16)
+		#define dhNearPlane near
+		#define dhFarPlane float(vxRenderDistance * 16)
+		#define dhProjection vxProj
+		#define dhProjectionInverse vxProjInv
+		#define dhPreviousProjection vxProjPrev
+	#else
+		uniform sampler2D dhDepthTex0;
+		uniform sampler2D dhDepthTex1;
+
+		uniform int dhRenderDistance;
+
+		uniform float dhNearPlane;
+		uniform float dhFarPlane;
+
+		uniform mat4 dhProjection;
+		uniform mat4 dhProjectionInverse;
+		uniform mat4 dhPreviousProjection;
+	#endif
 #endif

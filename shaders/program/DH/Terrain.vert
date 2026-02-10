@@ -1,7 +1,13 @@
 
 uniform vec2 taaOffset;
 uniform mat4 gbufferModelViewInverse;
-uniform mat4 dhProjection;
+
+#if defined VOXY
+	uniform mat4 vxProj;
+	#define dhProjection vxProj
+#else
+	uniform mat4 dhProjection;
+#endif
 
 out vec3 tint;
 

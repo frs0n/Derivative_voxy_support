@@ -126,7 +126,14 @@ vec3 Reproject(in vec3 screenPos) {
 	}
 
 	float GetDepthLinearDH(in float depth) {
-		return (dhNearPlane * dhFarPlane) / (depth * (dhNearPlane - dhFarPlane) + dhFarPlane);
+		#if defined VOXY
+			vec3 NDCPos = vec3(0.0, 0.0, depth) * 2.0 - 1.0;
+			vec3 viewPos = projMAD(dhProjectionInverse, NDCPos);
+			viewPos /= dhProjectionInverse[2].w * NDCPos.z + dhProjectionInverse[3].w;
+			return -viewPos.z;
+		#else
+			return (dhNearPlane * dhFarPlane) / (depth * (dhNearPlane - dhFarPlane) + dhFarPlane);
+		#endif
 	}
 
 	#define GetDepthDH(texel) texelFetch(dhDepthTex0, texel, 0).x

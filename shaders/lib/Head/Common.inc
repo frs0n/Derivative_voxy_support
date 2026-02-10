@@ -19,6 +19,10 @@
 
 #include "/Settings.glsl"
 
+#if defined VOXY && !defined DISTANT_HORIZONS
+	#define DISTANT_HORIZONS
+#endif
+
 const float PI 			= radians(180.0);
 const float rPI 		= 1.0 / PI;
 const float TAU 		= radians(360.0);

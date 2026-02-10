@@ -21,7 +21,7 @@ uniform sampler2D tex;
 
 	uniform float frameTimeCounter;
 
-	#if defined DISTANT_HORIZONS
+	#if defined DISTANT_HORIZONS && !defined VOXY
 		uniform float dhFarPlane;
 	#else
 		uniform float far;

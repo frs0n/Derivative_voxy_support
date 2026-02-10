@@ -35,7 +35,7 @@ float WaterHeight(in vec2 p) {
 	// p = rotation * p + wavesTime;
 	// wave += textureSmooth(p * vec2(2.0, 2.4)) * 0.2;
 
-	#if defined DISTANT_HORIZONS
+	#if defined DISTANT_HORIZONS && !defined VOXY
 		return wave / (0.8 + dot(abs(dFdx(p) + dFdy(p)), vec2(2e2 / dhFarPlane)));
 	#else
 		return wave / (0.8 + dot(abs(dFdx(p) + dFdy(p)), vec2(80.0 / far)));
