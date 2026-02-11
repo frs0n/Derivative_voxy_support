@@ -40,6 +40,42 @@ flat in vec3 skyIlluminance;
 
 #include "/lib/Water/WaterFog.glsl"
 
+#if defined VOXY && defined DISTANT_HORIZONS
+float voxy_texture_smooth(in vec2 coord) {
+	coord += 0.5;
+
+	vec2 whole = floor(coord);
+	vec2 part = curve(coord - whole);
+
+	coord = whole + part - 0.5;
+
+	return texture(noisetex, coord * rcp(256.0)).x;
+}
+
+float voxy_water_height(in vec2 p) {
+	float wavesTime = frameTimeCounter * 1.2 * WATER_WAVE_SPEED;
+	p.y *= 0.8;
+
+	float wave = 0.0;
+	wave += voxy_texture_smooth((p + vec2(0.0, p.x - wavesTime)) * 0.8);
+	wave += voxy_texture_smooth((p - vec2(-wavesTime, p.x)) * 1.6) * 0.5;
+	wave += voxy_texture_smooth((p + vec2(wavesTime * 0.6, p.x - wavesTime)) * 2.4) * 0.2;
+	wave += voxy_texture_smooth((p - vec2(wavesTime * 0.6, p.x - wavesTime)) * 3.6) * 0.1;
+
+	return wave * 0.625;
+}
+
+vec3 voxy_get_waves_normal(in vec2 position) {
+	float wavesCenter = voxy_water_height(position);
+	float wavesLeft = voxy_water_height(position + vec2(0.04, 0.0));
+	float wavesUp = voxy_water_height(position + vec2(0.0, 0.04));
+
+	vec2 wavesNormal = vec2(wavesCenter - wavesLeft, wavesCenter - wavesUp);
+
+	return normalize(vec3(wavesNormal * WATER_WAVE_HEIGHT, 0.5));
+}
+#endif
+
 //----// MAIN //----------------------------------------------------------------------------------//
 void main() {
 	ivec2 texel 		= ivec2(gl_FragCoord.xy);
@@ -71,6 +107,19 @@ void main() {
 	vec3 worldPos 		= mat3(gbufferModelViewInverse) * viewPos;
 	vec3 worldDir 		= normalize(worldPos);
 	worldPos 			+= gbufferModelViewInverse[3].xyz;
+
+	#if defined VOXY && defined DISTANT_HORIZONS
+		if (dhRange && materialMaskT.water) {
+			vec3 minecraftPos = worldPos + cameraPosition;
+			vec3 waveNormal = voxy_get_waves_normal(minecraftPos.xz - minecraftPos.y);
+			mat3 tbnMatrix = mat3(
+				normalize(gbufferModelView[0].xyz),
+				normalize(gbufferModelView[2].xyz),
+				normal
+			);
+			normal = normalize(tbnMatrix * waveNormal);
+		}
+	#endif
 
 	if (depth < 1.0) {
 		#ifdef RAYTRACED_REFRACTION
@@ -117,13 +166,13 @@ void main() {
 			vec4 reflectionData = texelFetch(colortex2, texel, 0);
 
 			#if defined VOXY && defined DISTANT_HORIZONS
-				if (dhRange && materialMaskT.water && dot(reflectionData, reflectionData) < 1e-8) {
+				if (dhRange && materialMaskT.water) {
 					vec3 worldNormal = normalize(mat3(gbufferModelViewInverse) * normal);
 					vec3 rayDirWorld = reflect(worldDir, worldNormal);
 					float skylight = clamp(texelFetch(colortex7, texel, 0).y, 0.0, 1.0);
 
 					float waterThickness = max0(GetDepthLinearDH(depthSoild) - GetDepthLinearDH(depth));
-					float absorption = fastExp(-waterThickness * 0.12);
+					float absorption = fastExp(-waterThickness * 0.32);
 
 					float NdotU = saturate((dot(normal, gbufferModelView[1].xyz) + 0.7) * 2.0) * 0.75 + 0.25;
 					float NdotV = clamp(abs(normal.z), 0.0, 1.0);

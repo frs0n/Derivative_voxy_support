@@ -20,12 +20,8 @@
     "blending": {
         -1: "off"
     },
-#ifdef TAA_ENABLED
-    "taaOffset": "{ return taaOffset; }",
     "useViewportDims": true,
-#endif
     "uniforms": [
-        "taaOffset",
         "gbufferModelView"
     ],
     "samplers": []
