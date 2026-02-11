@@ -36,45 +36,63 @@ flat in vec3 skyIlluminance;
 
 #include "/lib/Surface/ReflectionFilter.glsl"
 
+#ifndef RAYTRACED_REFRACTION
+	#include "/lib/Surface/ScreenSpaceReflections.glsl"
+#endif
+
 #include "/lib/Atmosphere/Fogs.glsl"
 
 #include "/lib/Water/WaterFog.glsl"
 
 #if defined VOXY && defined DISTANT_HORIZONS
-float voxy_texture_smooth(in vec2 coord) {
-	coord += 0.5;
+vec4 VoxyWaterReflectionDH(in vec3 normal, in float skylight, in vec3 viewPos, in float depth) {
+	const uint voxyRaytraceSamples = 16u;
+	skylight = smoothstep(0.3, 0.8, skylight);
+	vec3 viewDir = normalize(viewPos);
 
-	vec2 whole = floor(coord);
-	vec2 part = curve(coord - whole);
+	vec3 rayDir = reflect(viewDir, normal);
 
-	coord = whole + part - 0.5;
+	float NdotL = dot(normal, rayDir);
+	if (NdotL < 1e-6) return vec4(0.0);
 
-	return texture(noisetex, coord * rcp(256.0)).x;
-}
+	float dither = InterleavedGradientNoiseTemporal(gl_FragCoord.xy);
+	// Use the reconstructed DH depth for this pixel.
+	// gl_FragCoord.z in composite pass is not the water surface depth and causes
+	// unstable SSR hit results that change with camera rotation.
+	vec3 screenPos = vec3(gl_FragCoord.xy * screenPixelSize, depth);
 
-float voxy_water_height(in vec2 p) {
-	float wavesTime = frameTimeCounter * 1.2 * WATER_WAVE_SPEED;
-	p.y *= 0.8;
+	float NdotV = max(1e-6, dot(normal, -viewDir));
+	#ifdef RAYTRACED_REFRACTION
+		bool hit = false;
+	#else
+		bool hit = ScreenSpaceRayTraceDH(viewPos, rayDir, dither, voxyRaytraceSamples, screenPos);
+	#endif
 
-	float wave = 0.0;
-	wave += voxy_texture_smooth((p + vec2(0.0, p.x - wavesTime)) * 0.8);
-	wave += voxy_texture_smooth((p - vec2(-wavesTime, p.x)) * 1.6) * 0.5;
-	wave += voxy_texture_smooth((p + vec2(wavesTime * 0.6, p.x - wavesTime)) * 2.4) * 0.2;
-	wave += voxy_texture_smooth((p - vec2(wavesTime * 0.6, p.x - wavesTime)) * 3.6) * 0.1;
+	vec3 reflection = vec3(0.0);
+	if (hit) {
+		reflection = texelFetch(colortex4, ivec2(screenPos.xy), 0).rgb;
+	} else if (skylight > 1e-3) {
+		if (isEyeInWater == 0) {
+			vec3 rayDirWorld = mat3(gbufferModelViewInverse) * rayDir;
+			float NdotU = saturate((dot(normal, gbufferModelView[1].xyz) + 0.7) * 2.0) * 0.75 + 0.25;
+			vec4 skyboxData = textureBicubic(colortex5, ProjectSky(rayDirWorld) + vec2(0.0, skyCaptureRes.y * screenPixelSize.y));
+			reflection = skyboxData.rgb * skylight * NdotU;
+		} else {
+			reflection = vec3(0.05, 0.7, 1.0) * 0.25 * (timeNoon + timeMidnight * NIGHT_BRIGHTNESS);
+		}
+	}
 
-	return wave * 0.625;
-}
+	float specular;
+	if (isEyeInWater == 1) {
+		specular = FresnelDielectricN(NdotV, 1.0 / WATER_REFRACT_IOR);
+	} else {
+		specular = FresnelDielectricN(NdotV, WATER_REFRACT_IOR);
+	}
 
-vec3 voxy_get_waves_normal(in vec2 position) {
-	float wavesCenter = voxy_water_height(position);
-	float wavesLeft = voxy_water_height(position + vec2(0.04, 0.0));
-	float wavesUp = voxy_water_height(position + vec2(0.0, 0.04));
-
-	vec2 wavesNormal = vec2(wavesCenter - wavesLeft, wavesCenter - wavesUp);
-
-	return normalize(vec3(wavesNormal * WATER_WAVE_HEIGHT, 0.5));
+	return clamp16F(vec4(reflection * specular, 1.0 - specular));
 }
 #endif
+
 
 //----// MAIN //----------------------------------------------------------------------------------//
 void main() {
@@ -111,11 +129,11 @@ void main() {
 	#if defined VOXY && defined DISTANT_HORIZONS
 		if (dhRange && materialMaskT.water) {
 			vec3 minecraftPos = worldPos + cameraPosition;
-			vec3 waveNormal = voxy_get_waves_normal(minecraftPos.xz - minecraftPos.y);
+			vec3 waveNormal = GetWavesNormal(minecraftPos.xz - minecraftPos.y);
 			mat3 tbnMatrix = mat3(
 				normalize(gbufferModelView[0].xyz),
 				normalize(gbufferModelView[2].xyz),
-				normal
+				normalize(mat3(gbufferModelView) * vec3(0.0, 1.0, 0.0))
 			);
 			normal = normalize(tbnMatrix * waveNormal);
 		}
@@ -167,26 +185,7 @@ void main() {
 
 			#if defined VOXY && defined DISTANT_HORIZONS
 				if (dhRange && materialMaskT.water) {
-					vec3 worldNormal = normalize(mat3(gbufferModelViewInverse) * normal);
-					vec3 rayDirWorld = reflect(worldDir, worldNormal);
-					float skylight = clamp(texelFetch(colortex7, texel, 0).y, 0.0, 1.0);
-
-					float waterThickness = max0(GetDepthLinearDH(depthSoild) - GetDepthLinearDH(depth));
-					float absorption = fastExp(-waterThickness * 0.32);
-
-					float NdotU = saturate((dot(normal, gbufferModelView[1].xyz) + 0.7) * 2.0) * 0.75 + 0.25;
-					float NdotV = clamp(abs(normal.z), 0.0, 1.0);
-					float specular = 0.02037 + 0.97963 * pow(1.0 - NdotV, 5.0);
-					vec4 skyboxData = textureBicubic(
-						colortex5,
-						ProjectSky(rayDirWorld) + vec2(0.0, skyCaptureRes.y * screenPixelSize.y)
-					);
-
-					reflectionData.rgb = skyboxData.rgb * skylight * NdotU * specular;
-					reflectionData.a = 1.0 - specular;
-
-					vec3 waterTint = mix(vec3(0.02, 0.06, 0.12), vec3(0.04, 0.12, 0.24), skylight);
-					sceneData = sceneData * absorption + waterTint * oneMinus(absorption);
+					reflectionData = VoxyWaterReflectionDH(normal, cube(texelFetch(colortex7, texel, 0).y), viewPos, depth);
 				}
 			#endif
 

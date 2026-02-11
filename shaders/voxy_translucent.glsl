@@ -57,12 +57,6 @@ void voxy_emitFragment(VoxyFragmentParameters parameters) {
         materialIDs = 16u;
     }
 
-    // Match DH water path: water color comes from tint/lighting pipeline,
-    // not block atlas detail texture.
-    if (materialIDs == 17u) {
-        albedo = parameters.tinting;
-    }
-
     colortex7Out.xy = parameters.lightMap;
     colortex7Out.xy = clamp(
         colortex7Out.xy + (voxy_dither() - 0.5) * rcp(255.0),
